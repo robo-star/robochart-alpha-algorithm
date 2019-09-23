@@ -1,0 +1,16 @@
+/AggregationSw.csp
+/AggregationSw_coreassertions.csp
+/Mathematics.csp
+/Mathematics_coreassertions.csp
+/aggregation.csp
+/aggregation_coreassertions.csp
+/basic_assertions.csp
+/basic_assertions.json
+/communication.csp
+/communicationC.csp
+/communicationC_coreassertions.csp
+/communication_coreassertions.csp
+/model_assertions.csp
+/model_assertions.json
+/movementC.csp
+/movementC_coreassertions.csp

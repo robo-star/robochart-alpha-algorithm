@@ -1,0 +1,14 @@
+
+
+import aggregation::*
+
+controller MovementC {
+	requires MovingHw 
+	uses SensingHw
+	uses ObstacleHw
+	sref stm_ref0 = Movement
+
+	connection MovementC on neighbours to stm_ref0 on neighbours
+	connection MovementC on obstacle to stm_ref0 on obstacle
+}
+

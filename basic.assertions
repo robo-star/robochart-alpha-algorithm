@@ -1,0 +1,13 @@
+assertion A1: Communication is deterministic
+assertion A2: Communication is divergence-free
+assertion A3: Communication is deadlock-free
+
+import aggregation::*
+
+assertion A4: Movement is not deterministic
+assertion A5: Movement is divergence-free
+assertion A6: Movement is deadlock-free
+
+assertion A7: AggregationSoftware is not deterministic
+assertion A8: AggregationSoftware is divergence-free
+assertion A9: AggregationSoftware is deadlock-free

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+        <title><a name="introduction"></a>Introduction</title>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+        
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        
+        
+    </head>
+    <body>
+        <ol>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#untimed">Model and Untimed Verification</a></li>
+<li><a href="#timed">Timed Properties</a>
+<ol>
+<li><a href="#revision0">Revision 0</a></li>
+<li><a href="#revision1">Revision 1</a></li>
+</ol>
+</li>
+<li><a href="#simver">Simulation Verification</a></li>
+</ol>
+<h1 id="a-name%22introduction%22aintroduction"><a name="introduction"></a>Introduction</h1>
+<p>This report documents the development of the model of a single robot in a swarm acting under the Alpha Algorithm. Chapter 1
+presents our model of the Alpha Algorithm implemented in a single robot, and presents the results of the verification of
+the requirements described below. Chapter 2 presents results of the verification using the timed RoboChart model of the
+Alpha Algorithm, considering both the requirements described below as well as requirements regarding timed properties.</p>
+<p>As a basis for verification, we define below a few requirements for the alpha algorithm restricted to a single
+robot. The basic requirements are core properties. The model requirements are specific of the application. We
+encode them as CSP processes, which refer to elements of the semantics of the RoboChart model we present below.
+Only those interested in understanding the formal description of the semantics need to read these process definitions.</p>
+<h4 id="a-basic-requirements">A) Basic Requirements</h4>
+<h5 id="1-communication-behaviour-is-deterministic">1) Communication behaviour is deterministic.</h5>
+<pre><code><div>assertion a1: Communication is deterministic
+</div></code></pre>
+<h5 id="2-communication-behaviour-is-divergence-free">2) Communication behaviour is divergence free.</h5>
+<pre><code><div>assertion a2: Communication is divergence-free
+</div></code></pre>
+<h5 id="3-communication-behaviour-is-deadlock-free">3) Communication behaviour is deadlock free.</h5>
+<pre><code><div>assertion a3: Communication is deadlock-free
+</div></code></pre>
+<h5 id="4-movement-behaviour-is-nondeterministic">4) Movement behaviour is nondeterministic.</h5>
+<pre><code><div>assertion a4: Movement is not deterministic
+</div></code></pre>
+<h5 id="5-movement-behaviour-is-divergence-free">5) Movement behaviour is divergence free.</h5>
+<pre><code><div>assertion a5: Movement is divergence-free
+</div></code></pre>
+<h5 id="6-movement-behaviour-is-deadlock-free">6) Movement behaviour is deadlock free.</h5>
+<pre><code><div>assertion a6: Movement is deadlock-free
+</div></code></pre>
+<h5 id="7-the-overall-model-is-nondeterministic">7) The overall model is nondeterministic.</h5>
+<pre><code><div>assertion a7: AggregationSoftware is not deterministic
+</div></code></pre>
+<h5 id="8-the-overall-model-is-divergence-free">8) The overall model is divergence free.</h5>
+<pre><code><div>assertion a8: AggregationSoftware is divergence-free
+</div></code></pre>
+<h5 id="9-the-overall-model-is-deadlock-free">9) The overall model is deadlock free.</h5>
+<pre><code><div>assertion a9: AggregationSoftware is deadlock-free
+</div></code></pre>
+<h4 id="b-model-requirements">B) Model Requirements</h4>
+<h5 id="1-the-communication-behaviour-should-consist-of-a-broadcast-followed-by-a-receive-event">1) The communication behaviour should consist of a broadcast followed by a receive event.</h5>
+<p>In particular, if the robot broadcasts its identifier through <code>broadcast</code>, zero or more occurrences of <code>receive</code>, whose first
+element of the parameter is that identifier, occur; these are the responses from the neighbours. While the robot receives
+responses from neighbours, it also can receive a broadcast from another robot, which is followed by a <code>receive</code> event,
+whose parameter contains the parameter of the <code>broadcast</code> as first element, and the identifier of the robot as the second element.</p>
+<pre><code><div>csp Spec1 csp-begin
+Spec1 = let
+Responds = (|~|x:ID @ AggregationSoftware_receive.in.(Communication_id,x) -&gt; Responds) |~| SKIP
+Run = AggregationSoftware_broadcast.in?x:diff(ID,{Communication_id}) -&gt; AggregationSoftware_receive.out!(x,Communication_id) -&gt; Run |~| SKIP
+Main = AggregationSoftware_broadcast.out.Communication_id -&gt; (Responds|||Run); Main
+within
+Main
+csp-end
+
+csp Impl1 csp-begin
+Impl1 = AggregationSoftware_O(0)\diff(Events,{|AggregationSoftware_receive,AggregationSoftware_broadcast|})
+csp-end
+
+assertion b1: Impl1 refines Spec1 in the failures model
+</div></code></pre>
+<h5 id="2-the-robot-should-start-moving-and-after-every-obstacle-move-at-least-once">2) The robot should start moving, and, after every obstacle, move at least once.</h5>
+<pre><code><div>csp Spec2 csp-begin
+Spec2 = let
+Moves = moveCall -&gt; moveRet -&gt; (Moves |~| SKIP)
+Run = |~|x:Position @ AggregationSoftware_obstacle.in.x -&gt; Moves; Run
+within
+Moves; Run
+csp-end 
+
+csp Impl2 csp-begin
+Impl2 = AggregationSoftware_O(0)\diff(Events,{|moveCall,moveRet,AggregationSoftware_obstacle|})
+csp-end
+
+assertion b2: Impl2 refines Spec2 in the failures model
+</div></code></pre>
+<h1 id="a-name%22untimed%22amodel-and-untimed-verification-download"><a name="untimed"></a>Model and Untimed Verification (<a href="AlphaAlgorithm_v5.0.zip">download</a>)</h1>
+<p>The model for the Alpha Algorithm shown below is very simple as is common in swarm algorithms. The Alpha-Algorithm
+state machines have timed cyclic behaviours defined using clocks. The robot is required to: turn after every <code>MB</code> time units,
+and probe for information from its neighbours after every <code>RC</code> time units. The value of these constants is left undefined in
+the RoboChart model, and so for a particular system they need to be instantiated. In particular, because of the interaction
+between the state machines their values need to be chosen so that overall the system can satisfy both cyclic periods.</p>
+<p>These cyclic behaviours are specified in the state machines <code>Movement</code> and <code>Communication</code> through the use of clocks and
+appropriate timed conditions. For example, in the case of the state machine <code>Movement</code>, the state <code>Turning</code> is entered
+after <code>MB</code> time units (specified by the condition <code>since(MBC)&gt;=MB</code> on the transition from <code>MovementAndAvoidance</code> to
+<code>Turning</code>). Similarly, in the state machine <code>Communication</code>, the state <code>Receive</code> is entered after every <code>RC</code> time units
+(specified by the condition <code>since(RCC)&gt;=RC</code> between the states <code>Receive</code> and <code>Broadcast</code>).</p>
+<p>Most of the requirements are established easily by FDR, except A.1 which states that the communication behaviour is deterministic. This fails because in
+the state <code>Receive</code>, the transition guarded by <code>[since(RCC) &gt;= RC]</code> (once it becomes enabled) introduces a nondeterminism.
+Since this transition does not have a trigger, if any of the events that trigger another transition from <code>Receive</code> occur,
+then either that transition of the one guarded by <code>[since(RCC) &gt;= RC]</code> can take place.</p>
+<p>The model can be altered to satisfy this requirement by conditioning all competing transitions with <code>[since(RCC)&lt;RC]</code>.
+While the requirement still cannot be verified in the untimed model, in the timed model we are able to prove it. This is
+discussed in the next chapter, where we present an alternative model with the extra guards.</p>
+<p>Absence of timed guards on transitions are also why requirements A.5 and A.7 are verified successfully. However, further review of the
+model and its semantics uncovers that the <code>random()</code> function does not introduce nondeterminism. This is due to the fact that
+the CSP semantics of RoboChart does not support the definition of nondeterministic functions such as <code>random()</code>.</p>
+<p>This limitation can be overcome by modifying the CSP model directly, and extracting the nondeterminism from the function
+call and distributing it over the statement. For instance, the statement <code>x = random()</code> can be defined as <code>|~|i:real @ x = i</code>,
+provided that the output  type of <code>random</code> is <code>real</code> and that in the model <code>real</code> is instantiated as a finite set. We do not
+pursue this option here.</p>
+<p>In this particular model, nondeterminism should only arise from the use of <code>random()</code> as a parameter to <code>wait</code>.
+This can be addressed using the timed semantics of RoboChat, which is the object of the next chapter.</p>
+<h3 id="model">Model</h3>
+<style>
+img {
+   width: 150px;
+   height: 100px;
+}
+</style>
+<p><img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/AggregationSw.jpg" alt="">{:width=&quot;40%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/movementC.jpg" alt="">{:width=&quot;100%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/aggregation.jpg" alt="">{:width=&quot;100%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/communicationC.jpg" alt="">{:width=&quot;100%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/communication.jpg" alt="">{:width=&quot;100%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/img/Mathematics.jpg" alt="">{:width=&quot;100%&quot;}</p>
+<h3 id="analysis">Analysis</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">A.1 <code>CommunicationC</code> is deterministic</td>
+<td style="text-align:left"><strong>false</strong></td>
+</tr>
+<tr>
+<td style="text-align:left">A.2 <code>CommunicationC</code> is divergence free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.3 <code>CommunicationC</code> is deadlock free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.4 <code>MovementC</code> is nondeterministic</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.5 <code>MovementC</code> is divergence free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.6 <code>MovementC</code> is deadlock free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.7 <code>AggregationSoftware_O</code> is nondeterministic</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.8 <code>AggregationSoftware_O</code> is divergence free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">A.9 <code>AggregationSoftware_O</code> is deadlock free</td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">B.1 <code>AggregationSoftware_O</code> refines <code>Spec1</code></td>
+<td style="text-align:left">true</td>
+</tr>
+<tr>
+<td style="text-align:left">B.2 <code>AggregationSoftware_O</code> refines <code>Spec2</code></td>
+<td style="text-align:left">true</td>
+</tr>
+</tbody>
+</table>
+<h1 id="a-name%22timed%22atimed-properties"><a name="timed"></a>Timed Properties</h1>
+<p>In this chapter we address the limitations of the analysis discussed in the previous chapter by analysing the
+Alpha-Algorithm specification using the <code>tock-CSP</code> model derived from the RoboChart specification. In addition, we consider some additional requirements related to time.</p>
+<h3 id="ta-basic-timed-requirements">TA) Basic Timed Requirements</h3>
+<p>To cater for the extra requirements, we define <code>tock-CSP</code>processes. Like the processes above, they refer to elements
+of the semantics of the RoboChart model. Only those interested in understanding the formal description of the timed
+semantics need to read these process definitions.</p>
+<p>In the semantics, we have a process <code>T_Movement_VS</code>, where the internal events <code>Movement_enteredV</code>,
+<code>Movement_enterV</code>, and <code>Movement_exitV</code> are visible. These events record when a state of the <code>Movement</code> state
+machine is beginning to enter, has entered, and is being exited, respectively. The semantics also defines a
+corresponding  process <code>T_Communication_VS</code> for the state machine<code>Communication</code>, where the events
+<code>Communication_enterV</code> and<code>Communication_exitV</code> are made visible. Similarly,<code>AggregationSoftware_VS</code> makes
+those events visible for the whole robotic system. Untimed versions of these processes are similarly defined
+without the prefix <code>T_</code>. The <code>tock-CSP</code> processes without the internal events visible are defined as: <code>T_Movement</code>, <code>T_Communication</code> and <code>T_AggregationSoftware</code>, respectively.</p>
+<h4 id="1-there-are-no-timelocks">1) There are no timelocks.</h4>
+<p>To check this property we define the following auxiliary sets of events visible for the state machines and the whole
+robot.</p>
+<pre><code><div>TA_ExternalEvents_Movement = {|Movement_obstacle,Movement_neighbours|}
+TA_ExternalEvents_Communication = {|Communication_receive,Communication_robots|}
+TA_ExternalEvents_AggregationSoftware = {|obstacle,receive|}
+</div></code></pre>
+<p>Absence of timelocks corresponds to not refusing <code>tock</code> events at any point, whereas other externally visible events can be
+performed or refused arbitrarily. For example, for the overall Alpha Algorithm module, we check this property by considering
+the refinement between: the parallel composition in interleaving of <code>RUN({tock})</code>, which offers <code>tock</code> forever, and <code>CHAOS(TA_ExternalEvents_AggregationSoftware)</code>,
+which may or may not refuse events in the set <code>TA_ExternalEvents_AggregationSoftware</code> forever, and the process <code>T_AggregationSoftware |\ union(TA_ExternalEvents_AggregationSoftware,{tock})</code> where every event other than <code>tock</code> and those in the set <code>TA_ExternalEvents_AggregationSoftware</code> are hidden using <code>|\</code>.</p>
+<pre><code><div>-- Requirement TA.1
+assert RUN({tock}) ||| CHAOS(TA_ExternalEvents_Movement) [F= T_Movement |\ union(TA_ExternalEvents_Movement,{tock})
+assert RUN({tock}) ||| CHAOS(TA_ExternalEvents_Communication) [F= T_Communication |\ union(TA_ExternalEvents_Communication,{tock})
+assert RUN({tock}) ||| CHAOS(TA_ExternalEvents_AggregationSoftware) [F= T_AggregationSoftware |\ union(TA_ExternalEvents_AggregationSoftware,{tock})
+</div></code></pre>
+<h4 id="2-every-state-is-reachable">2) Every state is reachable.</h4>
+<pre><code><div>-- Requirement TA.2
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_Turn180&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_RandomTurn&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_f1&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Move&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Avoid&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Communication_enteredV.&quot;Communication_Broadcast&quot;|}
+assert not STOP [T= T_AggregationSoftware_VS |\ {|Communication_enteredV.&quot;Communication_Receive&quot;|}
+</div></code></pre>
+<h4 id="3-states-can-be-visited-infinitely-many-times">3) States can be visited infinitely many times.</h4>
+<p>In the following assertions we check that every state can be entered forever. For example, in the case of the state
+<code>Turn180</code> we check that when considering the process <code>T_AggregationSoftware_VS</code> modelling the overall module with the<br>
+<code>Movement_enteredV.&quot;Movement_Turning_Turn180&quot;</code> event visible and no other, then it is refined by
+<code>RUN({|Movement_enteredV.&quot;Movement_Turning_Turn180&quot;|})</code>, which continuously offers the event
+<code>Movement_enteredV.&quot;Movement_Turning_Turn180&quot;</code>.</p>
+<pre><code><div>-- Requirement TA.3
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_Turn180&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_Turning_Turn180&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_RandomTurn&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_Turning_RandomTurn&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning_f1&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_Turning_f1&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_Turning&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_Turning&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_MovementAndAvoidance&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Move&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Move&quot;|})
+assert T_AggregationSoftware_VS |\ {|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Avoid&quot;|}
+[T= RUN({|Movement_enteredV.&quot;Movement_MovementAndAvoidance_Avoid&quot;|})
+assert T_AggregationSoftware_VS |\ {|Communication_enteredV.&quot;Communication_Broadcast&quot;|}
+[T= RUN({|Communication_enteredV.&quot;Communication_Broadcast&quot;|})
+assert T_AggregationSoftware_VS |\ {|Communication_enteredV.&quot;Communication_Receive&quot;|}
+[T= RUN({|Communication_enteredV.&quot;Communication_Receive&quot;|})
+</div></code></pre>
+<h5 id="4-the-system-does-not-initiate-an-infinite-number-of-events-within-a-finite-time-zeno-freedom">4) The system does not initiate an infinite number of events within a finite time. (Zeno freedom)</h5>
+<pre><code><div>-- Requirement TA.4
+assert T_AggregationSoftware |\ union(ExternalEvents_AggregationSoftware,{tock}) :[divergence free]
+</div></code></pre>
+<h3 id="tb-timed-model-requirements">TB) Timed Model Requirements</h3>
+<h4 id="1-no-more-than-rc-continuous-time-units-are-spent-in-the-state-receive-of-the-state-machine-communication">1) No more than <code>RC</code> continuous time units are spent in the state <code>Receive</code> of the state-machine <code>Communication</code>.</h4>
+<p>Since the cyclic behaviour of the state machine <code>Communication</code> is specified by the period <code>RC</code>, we capture the maximum time allowed in the state <code>Receive</code> by defining the following <code>tock-CSP</code> process <code>CommunicationStateSpent(t,x)</code>, where <code>t</code> is a parameter that we can vary to analyse the system, and <code>x</code> is the unique name of the state being considered.</p>
+<pre><code><div>CommunicationStateSpent(t,x) =
+let
+	Main = AnyOther({|Communication_enterV.x|}) ; ADeadline({|Communication_exitV.x|},t) ; Main
+within
+	timed_priority(Main)
+</div></code></pre>
+<p>This process first accepts any event nondeterministically using <code>AnyOther(E) = CHAOS(Events) [|E|&gt; SKIP</code>, but once the event
+<code>Communication_enterV.x</code> occurs, then it requires that the event <code>Communication_exitV.x</code> must take place within <code>t</code> time units.
+This deadline is encoded using the process <code>ADeadline(E,d) = (CHAOS(Events) [| {tock} |] WAIT(d)) [|E|&gt; SKIP</code>, which allows
+any event to happen nondeterministically within <code>d</code> time units, but after that an event in the set <code>E</code> must take place before
+time can pass. On the other hand, as soon as some event in <code>E</code> takes place, <code>ADeadline(E,d)</code> terminates. Finally there is a recursion. The overall process is defined by applying <code>timed\_priority</code> to <code>Main</code>, which ensures that maximal progress, that is, every internal event is performed before time can pass, is achieved in the <code>tock-CSP</code> encoding.</p>
+<p>In our case, since the timed condition between <code>Receive</code> and <code>Broadcast</code> is <code>since(RCC)&gt;=RC</code>, we specify through the following
+assertion that no more than <code>Communication_RC</code> time units are spent in state <code>&quot;Communication_Receive&quot;</code>. We observe that in
+the <code>CSP</code> model of RoboChart, variables and constants are uniquely identified together with the name of the state machine where they are declared, hence constant <code>RC</code> is actually uniquely defined as <code>Communication_RC</code>.</p>
+<pre><code><div>-- Requirement TB.1
+assert 	CommunicationStateSpent(Communication_RC,&quot;Communication_Receive&quot;)
+		[FD=
+		T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="2-the-state-machine-communication-starts-to-enter-the-state-receive-exactly-every-rc-units">2) The state machine <code>Communication</code> starts to enter the state <code>Receive</code> exactly every <code>RC</code> units.</h4>
+<pre><code><div>EnterExactly(t) = 
+	let
+		Initial = ADeadline({|Communication_enterV.&quot;Communication_Receive&quot;|},0)
+		EveryT = ADeadline({|Communication_enterV.&quot;Communication_Receive&quot;|},t) ; EveryT
+	within
+		timed_priority(Initial ; EveryT)
+
+-- Requirement TB.2
+assert 	EnterExactly(Communication_RC)
+		[FD=
+		T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="3-no-time-is-spent-in-the-state-broadcast-of-state-machine-communication">3) No time is spent in the state <code>Broadcast</code> of state machine <code>Communication</code>.</h4>
+<p>In order to be able to <code>receive</code> or <code>broadcast</code> every time unit, except for when the robot does its own <code>broadcast</code> every <code>RC</code> units, we check that no time is spent in state <code>Broadcast</code> via the following assertion.</p>
+<pre><code><div>-- Requirement TB.3
+assert 	CommunicationStateSpent(0,&quot;Communication_Broadcast&quot;)
+		[FD=
+		T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="4-initially-and-then-after-exactly-rc-time-units-when-a-broadcastcommunicationid-happens-then-the-events-broadcast-and-receive-are-offered-before-rc-time-units-elapse">4) Initially, and then after exactly <code>RC</code> time units, when a <code>broadcast.Communication_id</code> happens, then the events <code>broadcast</code> and <code>receive</code> are offered before <code>RC</code> time units elapse.</h4>
+<p>We define the following process <code>NoEvent</code>, where we first allow any event nondeterministically in <code>AnyOther({|broadcast.Communication_id|})</code>, and following a <code>broadcast.Communication_id</code>, it then behaves as <code>BroadcastHappened(0)</code>, which offers <code>receive</code> and <code>broadcast</code> before <code>RC</code> units elapse. If <code>receive</code> or <code>broadcast</code> happen, then any event is offered until <code>RC</code> units elapse. After the elapsing of <code>RC</code> units, the process behaves as <code>NoEvent</code> once more.</p>
+<pre><code><div>NoEvent = AnyOther({|broadcast.Communication_id|}) ; BroadcastHappened(0)
+
+BroadcastHappened(t) = (t &lt; Communication_RC &amp; (broadcast ?x-&gt; SomeHappened(t) 
+				[] 
+				receive?x:{x|x &lt;- {(Communication_id,x0) | x0 &lt;- ID}} -&gt; SomeHappened(t) 
+				[] 
+				tock -&gt; BroadcastHappened(t+1)))
+			[]
+			t == Communication_RC &amp; NoEvent
+
+SomeHappened(t) = t &lt; Communication_RC &amp; (AnyOther({tock}) ; SomeHappened(t+1))
+		[]
+		t == Communication_RC &amp; NoEvent
+</div></code></pre>
+<p>We then check that <code>NoEvent</code> in interleaving with the process that offers <code>moveCall</code>, <code>moveRet</code>, <code>obstacle</code> and <code>tock</code> nondeterministically, is refined by <code>T_AggregationSoftware</code>. The events <code>moveCall</code>, <code>moveRet</code> and <code>obstacle</code> are kept visible in <code>T_AggregationSoftware</code> as hiding them would introduce unwanted divergences for this check.</p>
+<pre><code><div>-- Requirement TB.4
+assert CHAOS({|moveCall,moveRet,obstacle,tock|}) [| {tock} |] NoEvent [FD= T_AggregationSoftware
+</div></code></pre>
+<h4 id="5-after-every-mb-time-units-the-state-turning-in-the-state-machine-movement-is-entered">5) After every <code>MB</code> time units, the state <code>Turning</code> in the state machine <code>Movement</code> is entered.</h4>
+<p>The cyclic period <code>MB</code> of the state machine <code>Movement</code> can be captured by requiring that the state <code>Turning</code> is entered every <code>MB</code> units.</p>
+<pre><code><div>EveryMBEnterTurning =
+let
+Main = ADeadline({|Movement_enterV.&quot;Movement_Turning&quot;|},Movement_MB) ; Main
+within
+timed_priority(Main)
+
+-- Requirement TB.5
+assert EveryMBEnterTurning [FD= T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="6-every-time-state-movementandavoidance-is-entered-up-to-mb-time-units-are-spent-in-this-state">6) Every time state <code>MovementAndAvoidance</code> is entered, up to <code>MB</code> time units are spent in this state.</h4>
+<p>To capture the maximum allowed time spent in a certain state of state machine <code>Movement</code>, we define the following CSP process <code>MovementStateSpent(t,x)</code>.</p>
+<pre><code><div>MovementStateSpent(t,x) =
+let
+Main = AnyOther({|Movement_enterV.x|}) ; ADeadline({|Movement_exitV.x|},t) ; Main
+within
+timed_priority(Main)
+</div></code></pre>
+<p>For example, the following assertion encodes the requirement that state <code>MovementAndAvoidance</code> does not take more than <code>MB</code> time units, which could disrupt the cyclic behaviour of state <code>Turning</code>.</p>
+<pre><code><div>-- Requirement TB.6
+assert MovementStateSpent(Movement_MB,&quot;Movement_MovementAndAvoidance&quot;) [FD= T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="7-no-more-than-360av-time-units-are-spent-in-the-state-avoid-of-the-state-machine-movement">7) No more than <code>360/av</code> time units are spent in the state <code>Avoid</code> of the state-machine <code>Movement</code>.</h4>
+<p>Given that <code>random()</code> ranges over the real interval <code>0..1</code>, and that the transition from <code>Avoid</code> to <code>Move</code> should be taken immediately once the entry action of the state <code>Avoid</code> is completed, the state <code>Avoid</code> should be left in no more than 360/av time units. This is a derived property taking into account the definition of the behaviour in the state <code>Avoid</code> in terms of <code>random()</code>.</p>
+<pre><code><div>-- Requirement TB.7
+assert MovementStateSpent(360/Movement_av,&quot;Movement_MovementAndAvoidance_Avoid&quot;)
+[FD=
+T_AggregationSoftware_VS
+</div></code></pre>
+<h4 id="8-no-more-than-360av-time-units-are-spent-in-the-state-turning-of-state-machine-movement">8) No more than <code>360/av</code> time units are spent in the state <code>Turning</code> of state-machine <code>Movement</code>.</h4>
+<p>Similarly to the previous requirement, we require that once the state <code>Turning</code> has been entered, no more than <code>360/av</code> time units are spent in that state.</p>
+<pre><code><div>-- Requirement TB.8
+assert MovementStateSpent(360/Movement_av,&quot;Movement_Turning&quot;) [FD= T_AggregationSoftware_VS
+</div></code></pre>
+<h1 id="a-name%22revision0%22aanalysis-of-model-revision-0-download"><a name="revision0"></a>Analysis of model revision 0 (<a href="AlphaAlgorithm_Timed_Revision0.zip">download</a>)</h1>
+<p>Here we analyse the initial version of the Alpha Algorithm model as presented in the introduction. Not surprisingly, the issues
+already raised there show up here again.</p>
+<p>To make the conditions using <code>random()</code> analysable, we make random range over the interval from <code>0</code> to <code>1</code>. This is
+a limitation of the encoding of reals as a finite set, and the fact that <code>FDR</code> does not handle fixed or floating point types. An alternative that could be considered would include an encoding of rational numbers.</p>
+<p>We consider <code>RC = 1</code> and <code>MB = 1</code>.</p>
+<h3 id="a">A)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">A.1</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.3</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">[2]</td>
+</tr>
+<tr>
+<td style="text-align:left">A.4</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.5</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.6</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">[2]</td>
+</tr>
+<tr>
+<td style="text-align:left">A.7</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left">[1]</td>
+</tr>
+<tr>
+<td style="text-align:left">A.8</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left">[1]</td>
+</tr>
+<tr>
+<td style="text-align:left">A.9</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left">[1,2]</td>
+</tr>
+</tbody>
+</table>
+<p>[1]: These results are only tractable due to the selective application of FDR's <code>wbisim</code> compression
+function.</p>
+<p>[2]: In the timed model we can ascertain the absense of time locks, but not the absence, in general, of deadlocks.</p>
+<p>[A.1]: Fails just like in the untimed model because, once <code>since(RCC) &gt;= RC</code> is true, the transition from
+<code>Receive</code>to <code>Broadcast</code> competes nondeterministically with the self-transitions on state <code>Receive</code>. To make <code>Communication</code> deterministic the self-transitions need to be disabled once <code>since(RCC) &gt;= RC</code> is true.</p>
+<h3 id="b">B)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">B.1</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">B.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="ta">TA)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">TA.1</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left">[2]</td>
+</tr>
+<tr>
+<td style="text-align:left">TA.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TA.3</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TA.4</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="tb">TB)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">TB.1</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.2</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.3</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.4</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.5</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.6</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.7</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.8</td>
+<td style="text-align:left">fail</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<p>[TB.1]: Fails because there is no guarantee that once in state <code>Receive</code> the event <code>receive</code> takes place immediately, and so more than <code>RC</code> time units can be spent in state <code>Receive</code> violating requirement TB.1.</p>
+<p>[TB.2]: Similarly to TB.1, TB.2 fails because there is no requirement on <code>broadcast</code> to take place immediately in state <code>Broadcast</code>, so it is not necessarily the case that state <code>Receive</code> is entered every <code>RC</code> time units.</p>
+<p>[TB.3]: Similarly to TB.2, TB.3 fails because it is not possible to guarantee that no time is spent in state <code>Broadcast</code> as there is no deadline on the event <code>broadcast</code>.</p>
+<p>[TB.4]: Fails because exactly after <code>RC</code> units have passed, there is a nondeterminism between transitioning to state <code>Broadcast</code> or allowing another self-transition on state <code>Receive</code>, such as <code>broadcast</code> with a different ID other than <code>Communication_ID</code>, to take place.</p>
+<p>[TB.5]: Fails because there is no guarantee that the transition from state <code>MovementAndAvoid</code> is taken exactly after <code>since(MBC) &gt;= MB</code> is true. Namely, if the robot detects an <code>object</code> then the avoidance takes some time, which is always allowed to happen. Therefore, an appropriate condition on the transition from <code>Move</code> to <code>Avoid</code> would be <code>since(MBC) &lt; MB - 360/av</code>, with the caveat that <code>MB</code> itself must satisfy <code>MB - 360/av &gt;= 0</code>, so <code>MB &gt;= 360/av</code>. And in order to at least offer the possibility to treat the <code>object</code> event for at least one time unit, <code>MB &gt; 360/av</code>.</p>
+<p>Even if we fix the condition on the assertion from <code>Move</code> to <code>Avoid</code>, there is still a problem with the lack of clock resets on the transitions between states <code>MovementAndAvoid</code> and <code>Turning</code>. The appropriate change, incorporating the suggestion described here, is to have a clock reset on the transition from state <code>MovementAndAvoid</code> to state <code>Turning</code>. In this way the clock <code>MBC</code> also reflects the time since entering state <code>Turning</code> and together with the condition <code>since(MBC) &lt;= MB - 360/av</code> guarantees that the transition on <code>obstacle</code> does not compete with the timed trigger.</p>
+<p>To fully satisfy the requirement, however, it is necessary to make sure that <code>MB &lt; EE</code>, where <code>EE</code> is the worst-case time taken by state <code>Turning</code>, which, overall depends on <code>RCC</code> as well.</p>
+<p>[TB.6]: Fails because once an <code>obstacle</code> is detected, it is no longer the case that the transition from <code>MovementAndAvoid</code> to state <code>Turning</code> is triggered after <code>MB</code> units. Similarly to requirement <code>TB.5</code> this property cannot be satisfied unless the transition on <code>obstacle</code> is guarded by <code>since(MBC) &lt; MB -360/av</code> so that no more than <code>MB</code> units are ever spent in state <code>MovementAndAvoidance</code>.</p>
+<p>[TB.8]: Fails because the state-machine <code>Movement</code> may not be able to receive a value through the event <code>neighbours</code> immediately, and so it could spend an unbounded amount of time in state <code>Turning</code>.</p>
+<h1 id="a-name%22revision1%22aanalysis-of-model-revision-1-download"><a name="revision1"></a>Analysis of model revision 1 (<a href="AlphaAlgorithm_Timed_Revision1.zip">download</a>)</h1>
+<p>To cater for requirement <code>A.1</code> we change the transitions out of state <code>Receive</code>, on state machine <code>Communication</code>, to be guarded with a conjunction on <code>since(RCC)&lt;RC</code> so that they do not compete with the guarded transition from <code>Receive</code> to <code>Broadcast</code>. We adopt the following changes to state-machine <code>Communication</code>:</p>
+<ul>
+<li>The entry action <code>broadcast!id</code> is annotated with deadline <code>0</code>.</li>
+<li>Self-transition on state <code>Receive</code> with trigger <code>broadcast</code> is guarded by <code>[since(RCC)&lt;RC]</code>.</li>
+<li>Self-transition on state <code>Receive</code> with trigger <code>receive</code> is guarded with a conjunction with <code>sinceRCC&lt;RC</code>.</li>
+</ul>
+<p>To cater for the other requirements, we adjust the transitions in the state machine <code>Communication</code> as follows:</p>
+<ul>
+<li>The action following the self-transition on state <code>Receive</code> with trigger <code>broadcast</code> is annotated with deadline <code>0</code>.</li>
+</ul>
+<p>We also adjust the transitions in state machine <code>Movement</code> as follows:</p>
+<ul>
+<li>The transition from <code>Move</code> to <code>Avoid</code> is guarded with the condition <code>since(MBC) &lt; MB-360/av</code>, so that <code>obstacle</code> is offered before <code>MB</code> time units have passed since the last reset of clock <code>MBC</code> and any time that could be taken by state <code>Avoid</code> (which in the worst case is <code>360/av</code>).</li>
+<li>The transition from <code>MovementAndAvoidance</code> to state <code>Turning</code> has a reset on clock <code>MBC</code> added, so that the time spent by state <code>Turning</code> can be taken into account for the purpose of the cyclic execution.</li>
+</ul>
+<p>We also note that</p>
+<ul>
+<li>The constant <code>MB</code> must be greater than <code>360/av</code>.</li>
+</ul>
+<p>The changed diagrams are reproduced below.</p>
+<p><img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/timed_aggregation_1.png" alt="">{:width=&quot;100%&quot;}
+<img src="file:////home/ahm/eclipse-2019-09/eclipse-robotool/workspace/robochart-alpha-algorithm/timed_communication_1.png" alt="">{:width=&quot;100%&quot;}</p>
+<p>For the purpose of our analysis we consider consider <code>RC = 360/av+1</code> and <code>MB = 360/av+1</code>.</p>
+<h3 id="a-1">A)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">A.1</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.3</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.4</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.5</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.6</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.7</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.8</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">A.9</td>
+<td style="text-align:left">-</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="b-1">B)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">B.1</td>
+<td style="text-align:left">?</td>
+<td style="text-align:left">[3]</td>
+</tr>
+<tr>
+<td style="text-align:left">B.2</td>
+<td style="text-align:left">?</td>
+<td style="text-align:left">[3]</td>
+</tr>
+</tbody>
+</table>
+<p>[3]: Unable to verify due to abortion in FDR's execution.</p>
+<h3 id="ta-1">TA)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">TA.1</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left">[4]</td>
+</tr>
+<tr>
+<td style="text-align:left">TA.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TA.3</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TA.4</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<p>[4]: Result is conditional on hiding the events <code>Communication_receive</code>, <code>Communication_robots</code> and <code>receive</code> in the checks, as these events now have deadlines imposed on them and thus result in visible timelocks. The updated assertions are listed below.</p>
+<pre><code><div>-- Requirement TA.1 [modified to cater for known timelocks caused by deadlines]
+TA_ExternalEvents_Communication_WithoutDeadlines = {|Communication_robots|}
+TA_ExternalEvents_AggregationSoftware_WithoutDeadlines = {|obstacle|}
+
+assert RUN({tock}) ||| CHAOS(TA_ExternalEvents_Communication_WithoutDeadlines) [F= T_Communication |\ union(TA_ExternalEvents_Communication_WithoutDeadlines,{tock})
+assert RUN({tock}) ||| CHAOS(TA_ExternalEvents_AggregationSoftware_WithoutDeadlines) [F= T_AggregationSoftware |\ union(TA_ExternalEvents_AggregationSoftware_WithoutDeadlines,{tock})
+</div></code></pre>
+<h3 id="tb-1">TB)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Requirement</th>
+<th style="text-align:left">Result</th>
+<th style="text-align:left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">TB.1</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.2</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.3</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.4</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.5</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.6</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.7</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+<tr>
+<td style="text-align:left">TB.8</td>
+<td style="text-align:left">pass</td>
+<td style="text-align:left"></td>
+</tr>
+</tbody>
+</table>
+<h1 id="a-name%22simver%22simulation-verificationa-download"><a name="simver">Simulation Verification</a> (<a href="AlphaAlgorithm-Simulation-Verification.zip">download</a>)</h1>
+<p>The <a href="AlphaAlgorithm-Simulation-Verification.zip">project file</a> contains a manually generated semantics of the simulation for the Alpha Algorithm example, focusing on the Movement machine, as well as its correctness verification.</p>
+<p>The simulation was verified against the RoboChart model with assumptions <code>TA1</code>, <code>TA2</code> and <code>TA3</code>.</p>
+<p>The file with the CSP models and verification assertions is:
+<code>src-gen/timed/AlphaAlgorithm_assertionsVerification.csp</code></p>
+<p>The interested reader can load this file in the FDR4 tool and check the assertions.
+The relevant assertions are:</p>
+<pre><code><div>assert PMConstrainedSpecA3 \ ExternalEvents_System [FD= SimSpec
+assert SimSpec [FD= PMConstrainedSpecA3 \ ExternalEvents_System
+</div></code></pre>
+<p>They assert that the manually generated simulation model for the Movement machine
+(<code>SimSpec</code>) has the same behaviour (in the Failures-Divergences model of CSP) as the
+RoboChart model with the assumptions.</p>
+
+    </body>
+    </html>

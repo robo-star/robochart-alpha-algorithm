@@ -1,0 +1,13 @@
+/AggregationSoftware.csp
+/AggregationSoftware_coreassertions.csp
+/Communication.csp
+/CommunicationC.csp
+/CommunicationC_coreassertions.csp
+/Communication_coreassertions.csp
+/MovementC.csp
+/MovementC_coreassertions.csp
+/aggregation_Movement.csp
+/aggregation_Movement_coreassertions.csp
+/move.csp
+/move_coreassertions.csp
+/timed_definitions.csp

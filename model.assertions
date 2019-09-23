@@ -1,0 +1,68 @@
+csp Instantiations csp-begin
+nametype nat = {0..4}
+aggregation_Movement_alpha = 2 
+move_BOUND = 2
+nametype string = LSeq(Char,2)
+aggregation_Movement_av = 1
+aggregation_Movement_MB = 1
+nametype real = {0,1}
+nametype int = { -4..4}
+Communication_RC = 1
+Communication_id = 0 
+random() = 0
+nametype boolean = Bool
+nametype ID = {0,1}
+floor(x) = x 
+aggregation_Movement_lv = 1   
+
+Plus(e1,e2,T) = if member(e1+e2,T) then e1+e2 else e1
+Div(e1,e2,T) = if member(e1/e2,T) then e1/e2 else e1
+Neg(e1,T) = if member(-e1,T) then -e1 else e1
+Mult(e1,e2,T) = if member(e1*e2,T) then e1*e2 else e1
+Modulus(e1,e2,T) = if member(e1%e2,T) then e1%e2 else e1
+Minus(e1,e2,T) = if member(e1-e2,T) then e1-e2 else e1
+csp-end
+
+import aggregation::*
+
+assertion a1: Communication is deterministic
+assertion a2: Communication is divergence-free
+assertion a3: Communication is deadlock-free
+
+assertion a4: Movement is not deterministic
+assertion a5: Movement is divergence-free
+assertion a6: Movement is deadlock-free
+
+assertion a7: AggregationSoftware is not deterministic
+assertion a8: AggregationSoftware is divergence-free
+assertion a9: AggregationSoftware is deadlock-free
+
+
+csp Spec1 csp-begin
+Spec1 = let
+Responds = (|~|x:ID @ AggregationSoftware_receive.in.(Communication_id,x) -> Responds) |~| SKIP
+Run = AggregationSoftware_broadcast.in?x:diff(ID,{Communication_id}) -> AggregationSoftware_receive.out!(x,Communication_id) -> Run |~| SKIP
+Main = AggregationSoftware_broadcast.out.Communication_id -> (Responds|||Run); Main
+within
+Main
+csp-end
+
+csp Impl1 csp-begin
+Impl1 = AggregationSoftware_O(0)\diff(Events,{|AggregationSoftware_receive,AggregationSoftware_broadcast|})
+csp-end
+
+assertion b1: Impl1 refines Spec1 in the failures model
+
+csp Spec2 csp-begin
+Spec2 = let
+Moves = moveCall -> moveRet -> (Moves |~| SKIP)
+Run = |~|x:Position @ AggregationSoftware_obstacle.in.x -> Moves; Run
+within
+Moves; Run
+csp-end 
+
+csp Impl2 csp-begin
+Impl2 = AggregationSoftware_O(0)\diff(Events,{|moveCall,moveRet,AggregationSoftware_obstacle|})
+csp-end
+
+assertion b2: Impl2 refines Spec2 in the failures model
